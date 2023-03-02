@@ -1,0 +1,134 @@
+---
+title: ""
+subtitle: "Plan d'analyse statistique"
+author: 
+    name : "Philippe MICHEL"
+    affiliations:
+      name: "Hôpital NOVO"
+      department: "USRC"
+lang: fr-FR
+date: today
+date-format: "DD/MM/YYYY"
+format: 
+  titlepage-pdf:
+    titlepage: bg-image
+    titlepage-bg-image: "novo_usrc.png"
+    logo-space-after: "0\\baselineskip"
+    titlepage-footer: "Astrid JAMIN \\newline Dr Olivier FANCELLI\\newline SAMU 95 (Pontoise) "
+    documentclass: scrartcl
+    classoption: ["oneside", "open=any"]
+    number-sections: true
+titlepage-theme:
+    title-fontstyle: ["huge", "bfseries"]
+    subtitle-fontstyle: ["Large"]
+    logo-size: "0.2\\textheight"
+jss-pdf:
+    keep-tex: true   
+pdf-engine: lualatex
+keep-tex: true
+number-sections: true
+toc: false
+lof: false
+lot: false
+mainfont: Faune
+mainfontoptions:
+  - Numbers=OldStyle
+  - Ligatures=TeX
+sansfont: Myriad Pro
+sansfontoptions:
+  - Ligatures=TeX
+fig-cap-location: bottom
+tbl-cap-location: top
+classoption: [french]
+papersize: a4paper
+editor: source
+bibliography: stat.bib
+cite-method: biblatex
+license: "CC BY-SA"
+---
+---
+
+```{r setup, include= FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache = FALSE,
+ fig.width = 7,
+ fig.asp = 0.8,
+ out.width = "100%"
+)
+```
+
+```{r info}
+rm(list=ls())
+library("baseph")
+library("tidyverse")
+library("kableExtra")
+# sessionInfo()
+```
+
+## Généralités
+
+Le risque $\alpha$ retenu sera de 0,05 & la puissance de 0,8.
+
+Sauf indication contraires pour les tests simples les variables numériques seront comparées par un test de Student si possible ( effectifs suffisants, distribution normales (Test de Shapiro-Wilk), égalité des variances) auquel cas un test non paramétrique de Wilcoxon sera utilisé. Un test du $\chi^2$ sera utilisé pour les variables discrètes sous réserve d'un effectif suffisant. À défaut un test de Fischer sera utilisé. Des graphiques seront réalisés pour les résultats importants (package `ggplot2` [@ggplot]) & dérivés.
+
+## Taille de l'échantillon
+ 
+```{r}
+#| label: taille
+
+ex <- 0.05
+px <- 0.5
+np <- 10000
+nn <- nb.obs.ph(px = px,ex = ex, np = np)
+nn <- floor(nn*1.1)+1
+```
+
+
+
+Il s'agit d'une étude purement obsersationnelle sans test sur le critère principal. Le  taux de *bonne prise en charge de la douleur* n'étant pas connu on se base sur le taux le plus défavorable soit `r px*100`%. En utilisant un calcul de taille d'échantillon souhaitable pour un sondage, avec pourcentage une marge d'erreur de `r ex * 100` % on obtient un nombre minimal d'environ **`r nn` cas**. 
+
+
+
+## Données manquantes
+
+Le décompte des données manquantes sera réalisé & présenté par un tableau ou un graphique. Le critère principal est un critère composite calculé sur trois items. Si un seul de ces items est manquant le calcul ne peut être fait & le cas sera exclu. Pour les autres variables (démographiques etc.) celles comportant trop de données manquantes ou non utilisables ne seront pas prises en compte après validation par le promoteur.
+
+Après ce premier tri une imputation des données manquantes (package `missMDA` [@miss]) sera réalisée uniquement pour l'analyse factorielle & pour la recherche du meilleur modèle par step-by-tep descendant pour les analyses par régression (logistique ou linéaire). Néanmoins pour cette analyse, après choix du modèle, le calcul final sera fait avec les données réelles. 
+
+## Description de la population
+
+### Présentation des cas
+
+La description de la population concerne :
+
+Un tableau présentera les valeurs démographiques & clinique pour l'ensemble de la population. Les valeurs numériques seront présentées en moyenne ± écart-type, les valeurs discrètes en % avec son intervalle de confiance à 95 %.
+
+Une recherche de corrélation (package `corr` [@corr]) entre les variables sera réalisée. Si certaines variables se montreront trop corrélées elles devront être exclues de l'étude après accord du promoteur. 
+
+### Analyse factorielle
+
+Si le nombre de cas recueillis le permet une analyse factorielle en MCA (Analyse de correspondances multiples - package `FactoMineR` [@facto]) sera réalisée.
+
+Cette analyse ne pourra être qu'après transformation des variables numériques en catégories & imputation des données manquantes ce qui n'est possible que si ces dernières ne sont pas trop nombreuses.
+
+## Objectif principal
+
+Le critère principal est un critère composite calculé sur trois items. Si un seul de ces critère n'est pas rempli la prise en charge est considéré comme défaillante. Ce résultat sera présenté par un pourcentage avec son intervalle de confiance à 95 %.
+ 
+Une analyse simple sera réalisée pour rechercher d'éventuels facteurs pouvant influer sur ce résultat.
+
+
+### Analyse par régression
+
+Un modèle de régression logistique sera employé. Ce modèle de régression permettra d’explorer les facteurs associés à la réponse en utilisant les critères ayant une la réponse significative avec un seuil p.value = 0,2 lors de l'étape précédente. Une recherche du meilleur modèle sera réalisée par un step-by-step descendant évaluée par le critère d’information d’Akaike. Cette étape sera réalisée après imputation des données manquantes mais le résultat final sera calculé sur les données vraies. 
+
+## Objectifs secondaires
+
+Pas d'objectifs secondaires
+
+## Technique {.appendix}
+
+L'analyse statistique sera réalisée avec le logiciel **R**[@rstat] & divers packages. Outre ceux cités dans le texte ou utilisera en particulier `tidyverse` [@tidy] & `baseph` [@baseph].
+
+Un dépôt GitHub sera utilisé qui ne comprendra que le code & non les données ou résultats. Au besoin un faux tableau de données sera présenté pour permettre des tests.
+
+<https://github.com/philippemichel/dolsmur>
