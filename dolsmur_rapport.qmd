@@ -1,29 +1,68 @@
 ---
-title: ""
-subtitle: "Rapport"
-thanks: ""
-author: "Philippe MICHEL"
-format: pdf
+title: "DOLSMUR"
+subtitle: "Rapport Statistique -- V1.1"
+author: 
+    - name: "Dr Philippe MICHEL"
+      affiliations:
+        name: "Hôpital NOVO"
+        department: "Unité de Soutien à la Recherche Clinique"
+    - name:  "Dr Olivier FANCELLI"
+      affiliations:
+        name: "Hôpital NOVO"
+        department: "SAMU 95"
+    - name:  "Astrid JAMIN"
+      affiliations:
+        name: "Hôpital NOVO"
+        department: "SAMU 95"
+lang: fr-FR
+date: today
+date-format: "DD/MM/YYYY"
+format: 
+  titlepage-pdf:
+    titlepage: bg-image
+    titlepage-bg-image: "novo_usrc.png"
+    logo-space-after: "0\\baselineskip"
+    documentclass: scrreprt
+    classoption: ["oneside", "open=any"]
+    number-sections: true
+    titlepage-footer: "Étude descriptive, monocentrique, rétrospective \\newline Recherche n’impliquant pas la personne humaine"
+titlepage-theme:
+    title-fontstyle: ["Huge", "bfseries"]
+    title-color: novo
+    subtitle-color: novo
+    subtitle-fontstyle: ["huge"]
+    logo-size: "0.2\\textheight"
+    vrule-width: "0.1cm"
+    vrule-color: novo
+include-in-header:
+      text: |
+        \definecolor{novo}{HTML}{345d61}
+jss-pdf:
+    keep-tex: true   
 pdf-engine: lualatex
-documentclass: scrartcl
-mainfont: GillSans
-mainfontoptions:
-- Ligatures = Common
-- Ligatures = Rare
-sansfont: Source Sans Pro
-monofont: Source Sans Pro
-colorlinks: true
-fontsize: 11pt
-papersize: a4
-lang: fr
-fig-align: center
+keep-tex: true
+number-sections: true
 toc: true
 lof: true
-lot: false
-cite-method: biblatex
+lot: true
+mainfont: Faune
+mainfontoptions:
+  - Numbers=OldStyle
+  - Ligatures=TeX
+sansfont: Myriad Pro
+sansfontoptions:
+  - Ligatures=TeX
+fig-cap-location: bottom
+tbl-cap-location: top
+classoption: [french]
+papersize: a4paper
+editor: source
 bibliography: stat.bib
-license: MIT
-always_allow_html: true
+cite-method: biblatex
+csl: jama.csl
+#reference-location: margin
+#citation-location: margin
+license: "CC BY-SA"
 ---
 
 ```{r setup, include=FALSE}
@@ -32,26 +71,318 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache = FA
 
 ```{r}
 #| label: lib
+
 library(baseph)
 library(janitor)
+library(correlation)
 library(tidyverse)
 library(lubridate)
+library(labelled)
 library(kableExtra)
 library(forestmodel)
+library(epiDisplay)
+library(confintr)
+library(see)
+library(DataExplorer)
+library(gtsummary)
 ```
 
+```{r}
+#| label: import
+
+tt <- read_csv("datas/DOLSMUR.csv", na = c("NA","NC", " ", "-")) %>% 
+  mutate_if(is.character,as.factor) %>% 
+  janitor::clean_names()
+bn <- read_csv("datas/bnom.csv")
+bn <- bn$nom
+var_label(tt) <- as.character(bn)
+#
+## Recodage de tt$douleur
+tt$douleur <- tt$douleur %>%
+  fct_recode(
+    "non" = "abs"
+  )
+#
+tt$recours <- tt$recours %>%
+  fct_recode(
+    "tentative d'autolyse"  = "intoxication involontaire"
+  )
+
+tt$recours <- tt$recours %>%
+  fct_recode(
+    "autre douleur"   = "non classé ailleur"
+  )
+
+
+names(tt)[1] <- "id"
+tt <- tt[,-2]
+
+
+at <- read_csv("datas/atcd.csv", na = c("NC")) |> 
+  mutate(atcd.cardio = str_detect(antecedent,"cardiopathie")) |> 
+  mutate(atcd.cancer = str_detect(antecedent,"cancer")) |>
+  mutate(atcd.diabete = str_detect(antecedent,"diabète")) |> 
+  mutate(atcd.pneumo = str_detect(antecedent,"pulmonaire")) |> 
+  mutate(atcd.pneumo = str_detect(antecedent,"BPCO")) |> 
+  mutate(atcd.pneumo = str_detect(antecedent,"SAOS")) |> 
+  mutate(atcd.neuro = str_detect(antecedent,"neurologique")) |> 
+  mutate(atcd.psy = str_detect(antecedent,"psychiatrique")) |> 
+  mutate(atcd.chir = str_detect(antecedent,"chirurgie")) |> 
+  mutate(atcd.aucun = str_detect(antecedent,"aucun")) |> 
+  select(-2)
+
+tt <- left_join(tt,at,'id') |> 
+  select(-5)
+var_label(tt[,19:26]) <- c("Cardiologique","Cancer","Diabète","Pneumologique", "Neurologique","Psychiatrique","Chirugical","Aucun")  
+  
+```
+
+## Qualité des données
+
+### Données manquantes
+
+```{r}
+#| label: missing
+#| fig-cap: Données manquantes
+
+plot_missing(tt[,-1])
+```
+
+Les données manquantes sur les évaluations étaient attendues. 
+
+
+### Corrélations
+```{r}
+#| label: corr
+#| fig-cap: Matrice de corrélation
+
+zz <- tt |> 
+  select(-1) |> 
+  mutate_if(is.factor, as.numeric) |> 
+  correlation()
+  plot(summary(zz),show_data = "points", x.text.angle = 60)
+```
+On ne retrouve qu'une forte corrélation entre `EN1` & `EN2` d'une part ou `douleur` & `type`. Ces deux corrélations sont attendues & donc peu gênantes. 
 
 ## Description de la population
 
 
-L'échantillon comporte `r ` cas.
+L'échantillon comporte `r nrow(tt)` cas pour `r ncol(tt)-1` variables.
+
+```{r}
+#| label: pyr
+#| fig-cap: Pyramide des âges
+
+pyramid(tt$age,tt$sexe, col.gender = c("pink","lightblue"), main = "Pyramide des âges", binwidth = 10)
+```
 
 
+```{r}
+#| label: tabdem
+#| tbl-cap: Tableau descriptif - clinique
+
+tt[, c(2:4,6)] |>
+  tbl_summary(missing="no") |>
+  modify_header(label ~ " ") |>
+  add_n() |>
+  add_ci() |>
+  bold_labels() |> 
+  as_kable_extra(booktabs = TRUE) |> 
+  kable_styling(latex_options = c( "HOLD_position"))
+```
+
+```{r}
+#| label: tabatcd
+#| tbl-cap: Tableau descriptif - antécédents
+
+tt[, 19:26] |>
+  tbl_summary(missing="no") |>
+  modify_header(label ~ " ") |>
+  add_n() |>
+  add_ci() |>
+  bold_labels() |> 
+  as_kable_extra(booktabs = TRUE) |> 
+  kable_styling(latex_options = c( "HOLD_position"))
+```
+
+```{r}
+#| label: tabinter
+#| tbl-cap: Tableau descriptif - intervention
+
+tt[, c(4,6,7,9:16,18)] |>
+  tbl_summary(missing="no") |>
+  modify_header(label ~ " ") |>
+  add_n() |>
+  add_ci() |>
+  bold_labels() |> 
+  as_kable_extra(booktabs = TRUE) |> 
+  kable_styling(latex_options = c( "HOLD_position"))
+```
+
+## Critère principal
+
+Le critère principal est un critère composite considéré comme correct si les trois conditions sont remplies. Pour l'interprétation ne pas oublier qu'un certain ombre de patients étaient inconscients ou autre raison de ne pas pouvoir auto-évaluer leur douleur ce qui n'est pas pris en compte dans cette analyse.
+
+```{r}
+#| label: princ1
+#| tbl-cap: Critère principal 
+tbal <- NULL
+zz <- tt |> 
+  mutate(cprinc = ifelse(((evaluation=="oui")&(reevaluation=="oui")&(analgesie=="oui")),1,0)) |> 
+  mutate(cprin3 = ifelse((evaluation=="oui"),1,0)) |> 
+  mutate(cprin1 = ifelse(((evaluation=="oui")&(reevaluation=="oui")),1,0)) |> 
+  mutate(cprin2 = ifelse(((evaluation=="oui")&(analgesie=="oui")),1,0)) 
+var_label(zz$cprinc) <- "Critère complet"
+var_label(zz$cprin1) <- "Deux évaluations"
+var_label(zz$cprin2) <- "Évaluation initiale & analgésie"
+var_label(zz[,28:30]) <- c("Évaluation initiale","Deux évaluations","Évaluation initiale et analgésie")
+#
+zz |> 
+  select(27:30) |> 
+    tbl_summary(missing="no") |> 
+  modify_header(label ~ " ") |>
+    modify_spanning_header(all_stat_cols() ~ "**Critères présents**") |> 
+  add_n() |>
+  add_ci() |> 
+  bold_labels() |> 
+  as_kable_extra(booktabs = TRUE) |> 
+  kable_styling(latex_options = c( "HOLD_position", "scale_down"))
+```
+
+On peut considérer que les patients non algiques (évaluation initiale = 0) ne nécessitent pas d'analgésie & que donc , dans ce cas, le critère principal est rempli même en l'absence de traitement antalgique. 
+
+Le critère principal est alors : 
+
+`évaluation initiale ET réévaluation ET (antalgie OU EN1 = 0)`.
+
+```{r}
+#| label: critp2
+#| tbl-cap: Critère principal -- Correction sur l'évaluation initiale
+tbal <- NULL
+zz <- tt |> 
+  mutate(analg = (analgesie=="oui") | (en1 == 0)) |> 
+  mutate(cprinc = ifelse(((evaluation=="oui")&(reevaluation=="oui")&analg),1,0)) |> 
+  mutate(cprin1 = ifelse(((evaluation=="oui")&(reevaluation=="oui")),1,0)) |> 
+  mutate(cprin2 = ifelse(((evaluation=="oui")& analg),1,0))
+var_label(zz[,28:30]) <- c("Critère complet","Deux évaluations","Évaluation initiale et analgésie")
+#
+zz |> 
+  select(28:30) |> 
+    tbl_summary(missing="no") |> 
+  modify_header(label ~ " ") |>
+    modify_spanning_header(all_stat_cols() ~ "**Critères présents**") |> 
+  add_n() |>
+  add_ci() |> 
+  bold_labels() |> 
+  as_kable_extra(booktabs = TRUE) |> 
+  kable_styling(latex_options = c( "HOLD_position", "scale_down"))
+```
 
 
+La faible différence est due au peu d'évaluations & surtout de réévaluations chez les patients ayant une douleur nulle. On peut évaluer ce fait pour la réévaluation ou l'analgésie (uniquement pour les 128 patients ayant eu une évaluation initiale) :
+
+```{r}
+#| label: en0
+#| tbl-cap: prise en charge selon la douleur initiale
+
+## Recodage de zz$en1 en zz$en1_f
+zz$en1_f <- cut(zz$en1,
+  include.lowest = TRUE,
+  right = FALSE,
+  dig.lab = 2,
+  breaks = c(0, 1, 4, 7, 10),
+  labels = c("nulle","faible","modérée","intense")
+)
+var_label(zz$en1_f) <- "Évaluation initiale de la douleur"
+zz$cpoui <- ifelse(zz$cprinc == 1, "oui", "non")
+zz[,c(16,10,31)] |>
+  tbl_summary(by = en1_f,missing="no") |> 
+  modify_header(label ~ " ") |>
+    modify_spanning_header(all_stat_cols() ~ "**Intensité de la douleur initiale**") |> 
+  add_n() |>
+  add_p() |> 
+  bold_labels() |> 
+  as_kable_extra(booktabs = TRUE) |> 
+  kable_styling(latex_options = c( "HOLD_position", "scale_down"))
+```
+
+
+```{r}
+#| label: greev
+#| fig-cap: Réévaluation de la douleur selon la douleur initiale
+
+zz |> 
+  barouiph(reevaluation, en1_f, titre = "", stitre = "p < 0,001")
+```
+
+```{r}
+#| label: ganalg
+#| fig-cap: Traitement antalgique selon la douleur initiale
+
+zz |> 
+  barouiph(analgesie, en1_f, titre = "", stitre = "p < 0,001")
+```
+## Facteurs influants éventuels
+
+### Selon les données cliniques
+
+```{r}
+#| label: pincclin
+#| tbl-cap: Critère composite selon les données cliniques
+
+  
+zz |> 
+  select(c(2:3,32)) |> 
+   tbl_summary(by = cpoui, missing="no") |> 
+  modify_header(label ~ " ") |>
+    modify_spanning_header(all_stat_cols() ~ "**Évaluation initiale de la douleur**") |> 
+  add_n() |>
+  add_p() |> 
+  bold_labels() |> 
+  as_kable_extra(booktabs = TRUE) |> 
+  kable_styling(latex_options = c( "HOLD_position"))
+```
+
+### Antécédents
+
+```{r}
+#| label: pincatcd
+#| tbl-cap: Critère composite selon les antécédents
+
+  
+zz |> 
+  select(c(19:26,32)) |> 
+   tbl_summary(by = cpoui, missing="no") |> 
+  modify_header(label ~ " ") |>
+    modify_spanning_header(all_stat_cols() ~ "**Évaluation initiale de la douleur**") |> 
+  add_n() |>
+  add_p() |> 
+  bold_labels() |> 
+  as_kable_extra(booktabs = TRUE) |> 
+  kable_styling(latex_options = c( "HOLD_position"))
+```
+
+### Motifs de recours
+
+```{r}
+#| label: pincrec
+#| tbl-cap: Critère composite selon le motif de recours
+  
+zz |> 
+  select(c(4,32)) |> 
+ tbl_summary(by = cpoui, missing="no") |> 
+  modify_header(label ~ " ") |>
+    modify_spanning_header(all_stat_cols()  ~ "**Évaluation initiale de la douleur**") |> 
+  add_n() |>
+  bold_labels() |> 
+  as_kable_extra(booktabs = TRUE) |> 
+  kable_styling(latex_options = c( "HOLD_position", "scale_down"))
+```
+
+Les effectifs trop faibles interdisent tout test fiable.
 
 ## Technique
-Les données démographiques on été décrites par la médiane & les quartiles pour les données numériques, en pourcentage pour les données catégorielles. Les intervalles de confiance ont été calculés par bootstrap.
-Pour le critère principal la comparaison des deux groupes a été réalisée par un test de Wilcoxon sur séries appariées. La recherche de facteurs prédictifs a été réalisée par des test ANOVA. Vu le grand nombre de tests la limite de significabilité a été définie à 0,01.
+Les données démographiques ont été décrites par la médiane & les quartiles pour les données numériques, en pourcentage pour les données catégorielles. Les intervalles de confiance ont été calculés par bootstrap (méthode de Wilson).
+Pour le critère principal les comparaisons des deux groupes ont été réalisées par un test de Wilcoxon.
 
-L'analyse statistique a été réalisée grâce au logiciel **R**[@rstat] & à divers packages en particulier `tidyverse`[@tidy], `FactoMineR`[@facto] & `epiDisplay`[@epid].
+L'analyse statistique a été réalisée grâce au logiciel **R**[@rstat] & à divers packages en particulier `tidyverse`[@tidy] & `baseph`[@baseph].
