@@ -1,6 +1,6 @@
 ---
 title: "DOLSMUR"
-subtitle: "Rapport Statistique -- V1.2"
+subtitle: "Rapport Statistique -- V1.3"
 author: 
     - name: "Dr Philippe MICHEL"
       affiliations:
@@ -138,7 +138,7 @@ var_label(tt[,19:26]) <- c("Cardiologique","Cancer","Diabète","Pneumologique", 
 #
 tt <- tt |> 
   mutate(analgesie =((analgesie == "oui")|(paracetamol == "oui")|(tramadol == "oui")))
-tt$analgesie <- ifelse(tt$analgesie,"oui","non")
+tt$analgesie <- as.factor(ifelse(tt$analgesie,"oui","non"))
   
 ```
 
@@ -257,18 +257,18 @@ zz |>
   kable_styling(latex_options = c( "HOLD_position", "scale_down"))
 ```
 
-On peut considérer que les patients non algiques (évaluation initiale = 0) ne nécessitent pas d'analgésie & que donc , dans ce cas, le critère principal est rempli même en l'absence de traitement antalgique. 
+On peut considérer que les patients non algiques (évaluation initiale < 4) ne nécessitent pas d'analgésie & que donc , dans ce cas, le critère principal est rempli même en l'absence de traitement antalgique. 
 
 Le critère principal est alors : 
 
-`évaluation initiale ET réévaluation ET (antalgie OU EN1 = 0)`.
+`évaluation initiale ET réévaluation ET (antalgie OU EN1 <4)`.
 
 ```{r}
 #| label: critp2
 #| tbl-cap: Critère principal -- Correction sur l'évaluation initiale
 tbal <- NULL
 zz <- tt |> 
-  mutate(analg = (analgesie=="oui") | (en1 == 0)) |> 
+  mutate(analg = (analgesie =="oui" | en1 <4)& evaluation =="oui") |> 
   mutate(cprinc = ifelse(((evaluation=="oui")&(reevaluation=="oui")&analg),1,0)) |> 
   mutate(cprin1 = ifelse(((evaluation=="oui")&(reevaluation=="oui")),1,0)) |> 
   mutate(cprin2 = ifelse(((evaluation=="oui")& analg),1,0))
@@ -287,7 +287,9 @@ zz |>
 ```
 
 
-La faible différence est due au peu d'évaluations & surtout de réévaluations chez les patients ayant une douleur nulle. On peut évaluer ce fait pour la réévaluation ou l'analgésie (uniquement pour les `r length(na.omit(tt$en1))` patients ayant eu une évaluation initiale) :
+La faible différence est due au peu d'évaluations & surtout de réévaluations chez les patients ayant une douleur nulle. On peut évaluer ce fait pour la réévaluation ou l'analgésie (uniquement pour les `r length(na.omit(tt$en1))` patients ayant eu une évaluation initiale) [^1] :
+
+[^1]: V1.3 : modification de la définition de la douleur intense.
 
 ```{r}
 #| label: en0
@@ -298,7 +300,7 @@ zz$en1_f <- cut(zz$en1,
   include.lowest = TRUE,
   right = FALSE,
   dig.lab = 2,
-  breaks = c(0, 1, 4, 7, 10),
+  breaks = c(0, 1, 4, 6, 10),
   labels = c("nulle","faible","modérée","intense")
 )
 var_label(zz$en1_f) <- "Évaluation initiale de la douleur"
@@ -389,8 +391,75 @@ zz |>
 
 Les effectifs trop faibles interdisent tout test fiable.
 
+## Utilisation des antalgiques
+
+Graphiques & tableaux de l'utilisation des antalgiques selon le niveau de douleur. 
+
+```{r medprep}
+tt$en1_f <- cut(tt$en1,
+  include.lowest = TRUE,
+  right = FALSE,
+  dig.lab = 2,
+  breaks = c(0, 1, 4, 6, 10),
+  labels = c("nulle","faible","modérée","intense")
+)
+var_label(tt$en1_f) <- "Niveau de douleur"
+```
+
+
+### Paracétamol
+
+```{r}
+#| label: tbaparac
+#| tbl-cap: Paracétamol seon le niveau de douleur
+tt |> 
+ tbl_cross(paracetamol,en1_f, 
+           margin = "column", 
+           percent = "column",
+           missing = "no") |> 
+   add_p() |> 
+    as_kable_extra(booktabs = TRUE) |> 
+  kable_styling(latex_options = c( "HOLD_position", "scale_down"))
+```
+
+### Nefopam
+
+Un seul patient a reçu du nefopam (et sans évaluation de la douleur).
+
+
+### Tramadol
+
+Les effectifs sont là encore très faibles.
+```{r}
+#| label: tbtram
+#| tbl-cap: Tramadol seon le niveau de douleur
+tt |> 
+ tbl_cross(tramadol,en1_f, 
+           margin = "column", 
+           percent = "column",
+           missing = "no") |> 
+   add_p() |> 
+    as_kable_extra(booktabs = TRUE) |> 
+  kable_styling(latex_options = c( "HOLD_position", "scale_down"))
+```
+### Morphine
+
+La morphine n'a été utilisée que pour des douleurs intenses mais 88 % des patients ayant une EN initiale $\geq$ 6 n'ont pas reçu de morphine mais la moitié a reçu du paracétamol.
+```{r}
+#| label: tbmorph
+#| tbl-cap: Morphine seon le niveau de douleur
+tt |> 
+ tbl_cross(morphine,en1_f, 
+           margin = "column", 
+           percent = "column",
+           missing = "no") |> 
+   add_p() |> 
+  as_kable_extra(booktabs = TRUE) |> 
+  kable_styling(latex_options = c( "HOLD_position", "scale_down"))
+```
+
 ## Technique
 Les données démographiques ont été décrites par la médiane & les quartiles pour les données numériques, en pourcentage pour les données catégorielles. Les intervalles de confiance ont été calculés par bootstrap (méthode de Wilson).
-Pour le critère principal les comparaisons des deux groupes ont été réalisées par un test de Wilcoxon.
+Pour le critère principal les comparaisons des deux groupes ont été réalisées par un test de Wilcoxon pour les données numériques & par des tests exacts de Fisher pour les données discrètes.
 
 L'analyse statistique a été réalisée grâce au logiciel **R**[@rstat] & à divers packages en particulier `tidyverse`[@tidy] & `baseph`[@baseph].
