@@ -13,5 +13,7 @@
 
 **dolsmur_plan_analyse.qmd** : plan d'analyse, calcul du nb de cas.
 
+**dolsmur_rapport.qmd** Rapport final. 
+
 **stat.bib** : Références bibliographiques concernant en particulier les packages utilisés.
 

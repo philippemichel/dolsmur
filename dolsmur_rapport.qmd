@@ -25,7 +25,7 @@ format:
     documentclass: scrreprt
     classoption: ["oneside", "open=any"]
     number-sections: true
-    titlepage-footer: "Étude descriptive, monocentrique, rétrospective \\newline Recherche n’impliquant pas la personne humaine"
+    titlepage-footer: "Prise en charge de la douleur chez l’adulte en intervention primaire au SMUR de Pontoise\\newline Étude descriptive, monocentrique, rétrospective --- Recherche n’impliquant pas la personne humaine"
 titlepage-theme:
     title-fontstyle: ["Huge", "bfseries"]
     title-color: novo
@@ -36,7 +36,7 @@ titlepage-theme:
     vrule-color: novo
 include-in-header:
       text: |
-        \definecolor{novo}{HTML}{345d61}
+        \definecolor{novo}{HTML}{27484b}
 jss-pdf:
     keep-tex: true   
 pdf-engine: lualatex
@@ -116,10 +116,8 @@ tt$douleur <- tt$douleur %>%
 
 
 names(tt)[1] <- "id"
-tt <- tt[,-2]
-
-
-at <- read_csv("datas/atcd.csv", na = c("NC")) |> 
+tt <- tt |> 
+  dplyr::select(!(date)) |> 
   mutate(atcd.cardio = str_detect(antecedent,"cardiopathie")) |> 
   mutate(atcd.cancer = str_detect(antecedent,"cancer")) |>
   mutate(atcd.diabete = str_detect(antecedent,"diabète")) |> 
@@ -130,10 +128,7 @@ at <- read_csv("datas/atcd.csv", na = c("NC")) |>
   mutate(atcd.psy = str_detect(antecedent,"psychiatrique")) |> 
   mutate(atcd.chir = str_detect(antecedent,"chirurgie")) |> 
   mutate(atcd.aucun = str_detect(antecedent,"aucun")) |> 
-  select(-2)
-
-tt <- left_join(tt,at,'id') |> 
-  select(-5)
+  dplyr::select(!(antecedent))
 var_label(tt[,19:26]) <- c("Cardiologique","Cancer","Diabète","Pneumologique", "Neurologique","Psychiatrique","Chirugical","Aucun")  
 #
 tt <- tt |> 
@@ -411,7 +406,7 @@ var_label(tt$en1_f) <- "Niveau de douleur"
 
 ```{r}
 #| label: tbaparac
-#| tbl-cap: Paracétamol seon le niveau de douleur
+#| tbl-cap: Paracétamol selon le niveau de douleur
 tt |> 
  tbl_cross(paracetamol,en1_f, 
            margin = "column", 
@@ -421,6 +416,16 @@ tt |>
     as_kable_extra(booktabs = TRUE) |> 
   kable_styling(latex_options = c( "HOLD_position", "scale_down"))
 ```
+
+```{r}
+#| label: figparac
+#| fig-cap: Prescription de paracétamol selon le niveau de douleur
+
+tt |> 
+barouiph(paracetamol,en1_f) 
+
+```
+    
 
 ### Nefopam
 
@@ -432,7 +437,7 @@ Un seul patient a reçu du nefopam (et sans évaluation de la douleur).
 Les effectifs sont là encore très faibles.
 ```{r}
 #| label: tbtram
-#| tbl-cap: Tramadol seon le niveau de douleur
+#| tbl-cap: Tramadol selon le niveau de douleur
 tt |> 
  tbl_cross(tramadol,en1_f, 
            margin = "column", 
@@ -442,12 +447,22 @@ tt |>
     as_kable_extra(booktabs = TRUE) |> 
   kable_styling(latex_options = c( "HOLD_position", "scale_down"))
 ```
+
+```{r}
+#| label: figtram
+#| fig-cap: Prescription de tramadol selon le niveau de douleur
+
+tt |> 
+barouiph(tramadol,en1_f) 
+
+```
+    
 ### Morphine
 
 La morphine n'a été utilisée que pour des douleurs intenses mais 88 % des patients ayant une EN initiale $\geq$ 6 n'ont pas reçu de morphine mais la moitié a reçu du paracétamol.
 ```{r}
 #| label: tbmorph
-#| tbl-cap: Morphine seon le niveau de douleur
+#| tbl-cap: Morphine selon le niveau de douleur
 tt |> 
  tbl_cross(morphine,en1_f, 
            margin = "column", 
@@ -456,6 +471,40 @@ tt |>
    add_p() |> 
   as_kable_extra(booktabs = TRUE) |> 
   kable_styling(latex_options = c( "HOLD_position", "scale_down"))
+```
+
+```{r}
+#| label: figmorph
+#| fig-cap: Prescription de morphine selon le niveau de douleur
+
+tt |> 
+barouiph(morphine,en1_f) 
+
+```
+
+### Antalgiques autres
+
+```{r}
+#| label: tbautre
+#| tbl-cap: Autres antalgiques selon le niveau de douleur
+tt |> 
+ tbl_cross(autreantal,en1_f, 
+           margin = "column", 
+           percent = "column",
+           missing = "no") |> 
+   add_p() |> 
+  as_kable_extra(booktabs = TRUE) |> 
+  kable_styling(latex_options = c( "HOLD_position", "scale_down"))
+```
+
+
+```{r}
+#| label: figautrs
+#| fig-cap: Prescription de morphine selon le niveau de douleur
+
+tt |> 
+barouiph(autreantal,en1_f) 
+
 ```
 
 ## Technique
